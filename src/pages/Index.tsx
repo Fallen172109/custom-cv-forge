@@ -57,78 +57,94 @@ const Index = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Simulate processing - in real implementation this would submit to n8n webhook
-    setTimeout(() => {
-      setIsSubmitting(false);
-      // Mock results for demonstration
-      const mockResponse: AiResponse = {
-        score: 85,
-        cv_url: '#',
-        cover_letter_url: '#',
-        tips: [
-          'Add more relevant keywords from the job description',
-          'Quantify your achievements with specific numbers',
-          'Include a professional summary at the top'
-        ],
-        cv_data: wantCV ? {
-          name: 'John Doe',
-          target_role: 'Software Developer',
-          email: 'john@example.com',
-          phone: '+1 234 567 8900',
-          website: 'johndoe.dev',
-          summary: 'Experienced software developer with 5+ years in full-stack development.',
-          skills_csv: 'JavaScript, React, Node.js, TypeScript',
-          tools_csv: 'VS Code, Git, Docker, AWS',
-          exp1_company: 'Tech Corp',
-          exp1_title: 'Senior Developer',
-          exp1_dates: '2020 - Present',
-          exp1_bullets: '• Built scalable web applications\n• Led team of 4 developers\n• Increased performance by 40%',
-          exp2_company: 'StartupXYZ',
-          exp2_title: 'Full Stack Developer',
-          exp2_dates: '2018 - 2020',
-          exp2_bullets: '• Developed MVP from scratch\n• Implemented CI/CD pipelines',
-          edu1_school: 'University of Technology',
-          edu1_degree: 'B.S. Computer Science',
-          edu1_dates: '2014 - 2018',
-          edu1_details: 'Magna Cum Laude, 3.8 GPA',
-          edu2_school: '',
-          edu2_degree: '',
-          edu2_dates: '',
-          edu2_details: ''
-        } : undefined,
-        cl_data: wantCL ? {
-          name: 'John Doe',
-          email: 'john@example.com',
-          phone: '+1 234 567 8900',
-          company: 'Target Company',
-          cover_intro: 'I am writing to express my strong interest in the Software Developer position.',
-          cover_body: 'With over 5 years of experience in full-stack development, I have successfully built and deployed scalable web applications. My expertise in React, Node.js, and cloud technologies makes me an ideal candidate for this role.',
-          cover_closing: 'I look forward to discussing how my skills can contribute to your team.',
-          target_role: 'Software Developer',
-          website: 'johndoe.dev'
-        } : undefined
-      };
-      
-      setResults(mockResponse);
-      setAi(mockResponse);
-      
-      if (wantCV && mockResponse.cv_data) {
-        setCvEdit(prev => ({ ...(prev || {} as any), ...mockResponse.cv_data } as CVData));
+
+    try {
+      // Build form data for the generate request
+      const form = e.currentTarget;
+      const formData = new FormData(form);
+      // Append additional fields for JSON payload
+      const template = selectedTemplate;
+      formData.append('template_id', template);
+      formData.append('send_email', 'true');
+      // Include job link and description fields (even if description is empty)
+      const jobUrl = (formData.get('job_url') as string) || '';
+      formData.append('jd_link', jobUrl);
+      if (!formData.has('job_description')) {
+        formData.append('job_description', '');  // no description text input in UI
       }
-      if (wantCL && mockResponse.cl_data) {
-        setClEdit(prev => ({ ...(prev || {} as any), ...mockResponse.cl_data } as CLData));
+      // Remove fields that will be replaced by mode (to avoid confusion in backend)
+      formData.delete('job_url');
+      formData.delete('make_cv');
+      formData.delete('score_cv');
+      formData.delete('cover_letter');
+      // Determine mode string based on user selections
+      const tasks: string[] = [];
+      if (wantCV) tasks.push('cv');
+      if (wantCL) tasks.push('cover_letter');
+      if (wantScore) tasks.push('score');
+      if (tasks.length === 0) {
+        // No output selected – abort and inform user
+        setIsSubmitting(false);
+        toast({ description: "Please select at least one option (CV, Cover Letter, or Score)." });
+        return;
+      }
+      const mode = tasks.join('_');
+      formData.append('mode', mode);
+
+      // Call the n8n generate webhook
+      const generateRes = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/generate", {
+        method: "POST",
+        body: formData
+      });
+      if (!generateRes.ok) {
+        throw new Error(`Generation request failed: ${generateRes.status}`);
+      }
+      const data: AiResponse = await generateRes.json();
+
+      // Update UI with the response data
+      setResults(data);
+      setAi(data);
+      if (wantCV && data.cv_data) {
+        setCvEdit(prev => ({ ...(prev || {} as any), ...data.cv_data } as CVData));
+      }
+      if (wantCL && data.cl_data) {
+        setClEdit(prev => ({ ...(prev || {} as any), ...data.cl_data } as CLData));
       }
       setActiveEditor(wantCV ? 'cv' : (wantCL ? 'cl' : null));
-      
-      toast({
-        description: "We also sent the files to your email."
-      });
-      
+
+      // Pre-fill the sendEmail state with the user's email for convenience
+      const emailValue = data?.cv_data?.email || form.querySelector<HTMLInputElement>("input[name='email']")?.value || "";
+      setSendEmail(emailValue);
+
+      // Automatically send the files via email using the second webhook
+      if (emailValue) {
+        const sendPayload: any = { email: emailValue };
+        if (data.cv_url) sendPayload.cv_url = data.cv_url;
+        if (data.cover_letter_url) sendPayload.cover_letter_url = data.cover_letter_url;
+        // (We can also include template_id or other info if the webhook needs it)
+        const sendRes = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sendPayload)
+        });
+        // We won't throw error on send failure; instead handle below to notify user
+        if (!sendRes.ok) {
+          console.error("Email sending failed:", sendRes.statusText);
+        }
+      }
+
+      // Notify the user (toast) that an email was sent
+      toast({ description: "We also sent the files to your email." });
+      // Scroll down to the editor section to show results
       setTimeout(() => {
         document.querySelector('#editor')?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
-    }, 3000);
+    } catch (err) {
+      console.error(err);
+      toast({ description: "Error generating CV. Please try again." });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -400,7 +416,30 @@ const Index = () => {
               <button
                 type="button"
                 className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
-                onClick={() => console.log('TODO: send via backend', sendEmail)}
+                onClick={async () => {
+                  if (!ai) {
+                    toast({ description: "Please generate a CV or cover letter first." });
+                    return;
+                  }
+                  if (!sendEmail) {
+                    toast({ description: "Please enter an email address." });
+                    return;
+                  }
+                  try {
+                    const payload: any = { email: sendEmail };
+                    if (ai.cv_url) payload.cv_url = ai.cv_url;
+                    if (ai.cover_letter_url) payload.cover_letter_url = ai.cover_letter_url;
+                    const res = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/send", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) throw new Error("Send failed");
+                    toast({ description: "Email sent successfully!" });
+                  } catch {
+                    toast({ description: "Failed to send email. Please try again." });
+                  }
+                }}
               >
                 Email me the files
               </button>
