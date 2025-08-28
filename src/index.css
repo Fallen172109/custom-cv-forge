@@ -148,19 +148,21 @@
 
 @layer components{
   .switch{
-    @apply relative inline-flex h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full border border-gray-300 bg-white transition-colors;
+    position:relative;
+    width:44px;height:24px;
+    appearance:none;
+    background:#fff;border:1px solid #E5E7EB;border-radius:9999px;
+    cursor:pointer;vertical-align:middle;outline:none;box-shadow:none;
+    transition:background-color .2s, border-color .2s;
   }
   .switch::before{
     content:"";
-    @apply absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-all;
+    position:absolute;width:20px;height:20px;
+    top:2px;left:2px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.12);
+    transform:translateX(0);transition:transform .2s;
   }
-  .switch:checked{
-    @apply border-transparent bg-[#FF6B00];
-  }
-  .switch:checked::before{
-    left: 1.375rem; /* 22px */
-  }
-  .switch:focus-visible{
-    @apply ring-2 ring-offset-2 ring-[#FF6B00] outline-none;
-  }
+  .switch:checked{background:#FF6B00;border-color:#FF6B00;}
+  .switch:checked::before{transform:translateX(20px);}
+  .switch:focus,.switch:focus-visible{outline:0;box-shadow:0 0 0 3px rgba(255,107,0,.25);}
 }
