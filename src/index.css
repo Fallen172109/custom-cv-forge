@@ -163,4 +163,9 @@
   .switch:checked{ background:#FF6B00; border-color:#FF6B00; }
   .switch:checked::before{ transform:translate(20px,-50%); }
   .switch:focus,.switch:focus-visible{ outline:0; box-shadow:0 0 0 3px rgba(255,107,0,.18); }
+
+  .field{ @apply space-y-1; }
+  .label{ @apply text-sm font-medium text-gray-700; }
+  .input{ @apply w-full rounded-xl border border-[#E5E7EB] bg-white p-3; }
+  .textarea{ @apply w-full rounded-xl border border-[#E5E7EB] bg-white p-3; }
 }

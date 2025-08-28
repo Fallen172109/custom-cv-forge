@@ -27,6 +27,26 @@ const Index = () => {
   const [cvEdit, setCvEdit] = useState<CVData | undefined>();
   const [clEdit, setClEdit] = useState<CLData | undefined>();
   const [activeEditor, setActiveEditor] = useState<'cv'|'cl'|null>(null);
+  const [sendEmail, setSendEmail] = useState('');
+
+  const handleDownloadHTML = async () => {
+    if (!activeEditor) return;
+    
+    let html = '';
+    let filename = '';
+    
+    if (activeEditor === 'cv' && cvEdit) {
+      html = await renderCV(cvEdit, selectedTemplate);
+      filename = 'cv.html';
+    } else if (activeEditor === 'cl' && clEdit) {
+      html = await renderCL(clEdit, selectedTemplate);
+      filename = 'cover-letter.html';
+    }
+    
+    if (html) {
+      downloadHTML(html, filename);
+    }
+  };
   
   const t = useMemo(() => I18N[lang], [lang]);
 
@@ -370,19 +390,24 @@ const Index = () => {
                   Download Cover Letter
                 </a>
               )}
+              <input
+                type="email"
+                placeholder="Email to send files"
+                value={sendEmail}
+                onChange={(e) => setSendEmail(e.target.value)}
+                className="input w-72"
+              />
+              <button
+                type="button"
+                className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
+                onClick={() => console.log('TODO: send via backend', sendEmail)}
+              >
+                Email me the files
+              </button>
               <button
                 type="button"
                 className="rounded-xl border px-4 py-2"
-                onClick={() =>
-                  downloadHTML(
-                    activeEditor === 'cv' && cvEdit
-                      ? renderCV(cvEdit, selectedTemplate)
-                      : activeEditor === 'cl' && clEdit
-                      ? renderCL(clEdit, selectedTemplate)
-                      : '',
-                    activeEditor === 'cv' ? 'cv.html' : 'cover-letter.html'
-                  )
-                }
+                onClick={handleDownloadHTML}
               >
                 Download HTML (fallback)
               </button>
