@@ -8,13 +8,25 @@ import { Progress } from '@/components/ui/progress';
 import { Upload, CheckCircle, Download, Mail, ArrowRight } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import I18N, { Lang } from '../i18n';
+import { CVData, CLData, AiResponse } from '../types';
+import CVEditor from '../components/CVEditor';
+import CLEditor from '../components/CLEditor';
+import { renderCV, renderCL } from '../renderers';
+import { downloadHTML } from '../utils/download';
 
 const Index = () => {
   const [lang, setLang] = useState<Lang>('en');
-  const [selectedTemplate, setSelectedTemplate] = useState('modern');
+  const [selectedTemplate, setSelectedTemplate] = useState<'classic'|'modern'|'classic_alternative'>('modern');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [preview, setPreview] = useState<string | undefined>();
+  const [wantCV, setWantCV] = useState(true);
+  const [wantScore, setWantScore] = useState(false);
+  const [wantCL, setWantCL] = useState(false);
+  const [ai, setAi] = useState<AiResponse | undefined>();
+  const [cvEdit, setCvEdit] = useState<CVData | undefined>();
+  const [clEdit, setClEdit] = useState<CLData | undefined>();
+  const [activeEditor, setActiveEditor] = useState<'cv'|'cl'|null>(null);
   
   const t = useMemo(() => I18N[lang], [lang]);
 
@@ -30,7 +42,7 @@ const Index = () => {
     setTimeout(() => {
       setIsSubmitting(false);
       // Mock results for demonstration
-      setResults({
+      const mockResponse: AiResponse = {
         score: 85,
         cv_url: '#',
         cover_letter_url: '#',
@@ -38,11 +50,64 @@ const Index = () => {
           'Add more relevant keywords from the job description',
           'Quantify your achievements with specific numbers',
           'Include a professional summary at the top'
-        ]
-      });
+        ],
+        cv_data: wantCV ? {
+          name: 'John Doe',
+          target_role: 'Software Developer',
+          email: 'john@example.com',
+          phone: '+1 234 567 8900',
+          website: 'johndoe.dev',
+          summary: 'Experienced software developer with 5+ years in full-stack development.',
+          skills_csv: 'JavaScript, React, Node.js, TypeScript',
+          tools_csv: 'VS Code, Git, Docker, AWS',
+          exp1_company: 'Tech Corp',
+          exp1_title: 'Senior Developer',
+          exp1_dates: '2020 - Present',
+          exp1_bullets: '• Built scalable web applications\n• Led team of 4 developers\n• Increased performance by 40%',
+          exp2_company: 'StartupXYZ',
+          exp2_title: 'Full Stack Developer',
+          exp2_dates: '2018 - 2020',
+          exp2_bullets: '• Developed MVP from scratch\n• Implemented CI/CD pipelines',
+          edu1_school: 'University of Technology',
+          edu1_degree: 'B.S. Computer Science',
+          edu1_dates: '2014 - 2018',
+          edu1_details: 'Magna Cum Laude, 3.8 GPA',
+          edu2_school: '',
+          edu2_degree: '',
+          edu2_dates: '',
+          edu2_details: ''
+        } : undefined,
+        cl_data: wantCL ? {
+          name: 'John Doe',
+          email: 'john@example.com',
+          phone: '+1 234 567 8900',
+          company: 'Target Company',
+          cover_intro: 'I am writing to express my strong interest in the Software Developer position.',
+          cover_body: 'With over 5 years of experience in full-stack development, I have successfully built and deployed scalable web applications. My expertise in React, Node.js, and cloud technologies makes me an ideal candidate for this role.',
+          cover_closing: 'I look forward to discussing how my skills can contribute to your team.',
+          target_role: 'Software Developer',
+          website: 'johndoe.dev'
+        } : undefined
+      };
+      
+      setResults(mockResponse);
+      setAi(mockResponse);
+      
+      if (wantCV && mockResponse.cv_data) {
+        setCvEdit(prev => ({ ...(prev || {} as any), ...mockResponse.cv_data } as CVData));
+      }
+      if (wantCL && mockResponse.cl_data) {
+        setClEdit(prev => ({ ...(prev || {} as any), ...mockResponse.cl_data } as CLData));
+      }
+      setActiveEditor(wantCV ? 'cv' : (wantCL ? 'cl' : null));
+      
       toast({
         description: "We also sent the files to your email."
       });
+      
+      setTimeout(() => {
+        document.querySelector('#editor')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }, 3000);
   };
 
@@ -131,13 +196,13 @@ const Index = () => {
                   <img src={tp.img} alt={tp.title}
                        className="absolute inset-0 w-full h-full object-contain" />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="text-lg font-semibold">{tp.title}</div>
-                  <input type="radio" name="template" value={tp.key}
-                         defaultChecked={tp.key === 'modern'}
-                         onChange={() => setSelectedTemplate(tp.key)}
-                         className="h-5 w-5 accent-[#FF6B00]" />
-                </div>
+                 <div className="flex items-center justify-between">
+                   <div className="text-lg font-semibold">{tp.title}</div>
+                   <input type="radio" name="template" value={tp.key}
+                          defaultChecked={tp.key === 'modern'}
+                          onChange={() => setSelectedTemplate(tp.key as 'classic'|'modern'|'classic_alternative')}
+                          className="h-5 w-5 accent-[#FF6B00]" />
+                 </div>
                 <button type="button"
                         onClick={() => setPreview(tp.img)}
                         className="mt-3 text-sm font-medium text-[#FF6B00] hover:underline">
@@ -172,15 +237,15 @@ const Index = () => {
           <div className="grid gap-4 rounded-2xl border border-[#E5E7EB] bg-white p-5">
             <label className="flex items-center justify-between">
               <span>{t.opt_makecv}</span>
-              <input type="checkbox" name="make_cv" defaultChecked className="switch" />
+              <input type="checkbox" name="make_cv" defaultChecked={wantCV} onChange={e => setWantCV(e.target.checked)} className="switch" />
             </label>
             <label className="flex items-center justify-between">
               <span>{t.opt_score}</span>
-              <input type="checkbox" name="score_cv" className="switch" />
+              <input type="checkbox" name="score_cv" checked={wantScore} onChange={e => setWantScore(e.target.checked)} className="switch" />
             </label>
             <label className="flex items-center justify-between">
               <span>{t.opt_cover}</span>
-              <input type="checkbox" name="cover_letter" className="switch" />
+              <input type="checkbox" name="cover_letter" checked={wantCL} onChange={e => setWantCL(e.target.checked)} className="switch" />
             </label>
           </div>
 
@@ -234,6 +299,93 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Editor Section */}
+      <section id="editor" className="container mx-auto px-4 py-12">
+        {!activeEditor && (
+          <p className="text-gray-500 text-center">Run generation to edit the result.</p>
+        )}
+
+        {activeEditor && (
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 space-y-8">
+            {/* Tabs */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={`px-4 py-2 rounded-xl border ${
+                  activeEditor === 'cv'
+                    ? 'bg-[#FF6B00] text-white border-[#FF6B00]'
+                    : 'bg-white'
+                }`}
+                onClick={() => setActiveEditor('cv')}
+                disabled={!cvEdit}
+              >
+                CV Editor
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 rounded-xl border ${
+                  activeEditor === 'cl'
+                    ? 'bg-[#FF6B00] text-white border-[#FF6B00]'
+                    : 'bg-white'
+                }`}
+                onClick={() => setActiveEditor('cl')}
+                disabled={!clEdit}
+              >
+                Cover Letter Editor
+              </button>
+            </div>
+
+            {/* Editors */}
+            {activeEditor === 'cv' && cvEdit && (
+              <CVEditor data={cvEdit} onChange={setCvEdit} template={selectedTemplate} />
+            )}
+            {activeEditor === 'cl' && clEdit && (
+              <CLEditor data={clEdit} onChange={setClEdit} template={selectedTemplate} />
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-3 pt-2">
+              {ai?.cv_url && (
+                <a
+                  className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
+                  href={ai.cv_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Download CV
+                </a>
+              )}
+              {ai?.cover_letter_url && (
+                <a
+                  className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
+                  href={ai.cover_letter_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Download Cover Letter
+                </a>
+              )}
+              <button
+                type="button"
+                className="rounded-xl border px-4 py-2"
+                onClick={() =>
+                  downloadHTML(
+                    activeEditor === 'cv' && cvEdit
+                      ? renderCV(cvEdit, selectedTemplate)
+                      : activeEditor === 'cl' && clEdit
+                      ? renderCL(clEdit, selectedTemplate)
+                      : '',
+                    activeEditor === 'cv' ? 'cv.html' : 'cover-letter.html'
+                  )
+                }
+              >
+                Download HTML (fallback)
+              </button>
             </div>
           </div>
         )}
