@@ -84,42 +84,67 @@ const Index = () => {
     setIsSubmitting(true);
 
     try {
-      // Build form data for the generate request
       const form = e.currentTarget;
       const formData = new FormData(form);
-      // Append additional fields for JSON payload
-      const template = selectedTemplate;
-      formData.append('template_id', template);
-      formData.append('send_email', 'true');
-      // Include job link and description fields (even if description is empty)
-      const jobUrl = (formData.get('job_url') as string) || '';
-      formData.append('jd_link', jobUrl);
-      if (!formData.has('job_description')) {
-        formData.append('job_description', '');  // no description text input in UI
-      }
-      // Remove fields that will be replaced by mode (to avoid confusion in backend)
-      formData.delete('job_url');
-      formData.delete('make_cv');
-      formData.delete('score_cv');
-      formData.delete('cover_letter');
-      // Determine mode string based on user selections
+      
+      // Get form field values
+      const rawDesc = (formData.get('job_description') as string)?.trim() || "";
+      const rawLink = (formData.get('job_url') as string)?.trim() || "";
+
+      // Only send link if it's a URL; otherwise send as description
+      const isUrl = /^https?:\/\//i.test(rawLink);
+      const job_description = isUrl ? (rawDesc || "") : (rawDesc || rawLink || "");
+      const jd_link = isUrl ? rawLink : "";
+
+      // Template mapping to match backend
+      const template_id = ({
+        modern: "modern",
+        classic: "classic", 
+        classic_alternative: "classic-alt", // map underscore to hyphen
+      })[selectedTemplate] || "classic";
+
+      // What to generate
       const tasks: string[] = [];
-      if (wantCV) tasks.push('cv');
-      if (wantCL) tasks.push('cover_letter');
-      if (wantScore) tasks.push('score');
+      if (wantCV) tasks.push("cv");
+      if (wantCL) tasks.push("cover_letter");
+      if (wantScore) tasks.push("score");
+      
       if (tasks.length === 0) {
-        // No output selected – abort and inform user
         setIsSubmitting(false);
         toast({ description: "Please select at least one option (CV, Cover Letter, or Score)." });
         return;
       }
-      const mode = tasks.join('_');
-      formData.append('mode', mode);
+      
+      const mode = tasks.length ? tasks.join("_") : "cv_cover_letter_score";
+
+      // Get CV file content (you may need to read the file)
+      const cvFile = formData.get('cv_file') as File;
+      let cv_text = "";
+      if (cvFile) {
+        // For now, we'll send the file via FormData as before, but structure the other fields properly
+        // The backend will extract cv_text from the file
+      }
+
+      const payload = {
+        cv_text: cv_text,
+        job_description,
+        jd_link,
+        template_id,
+        user_email: (formData.get('email') as string) || "",
+        mode
+      };
+
+      // Since we have a file, we'll use FormData but structure it properly
+      const finalFormData = new FormData();
+      finalFormData.append('cv_file', cvFile);
+      Object.entries(payload).forEach(([key, value]) => {
+        finalFormData.append(key, value);
+      });
 
       // Call the n8n generate webhook
       const generateRes = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/generate", {
         method: "POST",
-        body: formData
+        body: finalFormData
       });
       if (!generateRes.ok) {
         throw new Error(`Generation request failed: ${generateRes.status}`);
@@ -148,6 +173,12 @@ const Index = () => {
     // Pre-fill the sendEmail state with the user's email for convenience
     const emailValue = data?.cv_data?.email || form.querySelector<HTMLInputElement>("input[name='email']")?.value || "";
     setSendEmail(emailValue);
+
+    // Render HTML preview
+    const preview = document.getElementById("cv_preview_html");
+    if (preview && normalized.cv_html) {
+      preview.innerHTML = normalized.cv_html;
+    }
 
     // Automatically send the files via email using the second webhook
     if (emailValue) {
@@ -364,6 +395,18 @@ const Index = () => {
                 </div>
               );
             })()}
+
+            {/* HTML Preview */}
+            {results?.cv_html && (
+              <div className="mt-8">
+                <h3 className="font-heading font-semibold text-lg mb-4">CV Preview</h3>
+                <div 
+                  id="cv_preview_html"
+                  className="border rounded-lg p-4 bg-white max-h-96 overflow-auto"
+                  dangerouslySetInnerHTML={{ __html: results.cv_html }}
+                />
+              </div>
+            )}
           </div>
         )}
       </section>
