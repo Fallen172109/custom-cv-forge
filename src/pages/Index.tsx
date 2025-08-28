@@ -140,7 +140,9 @@ const Index = () => {
                 </div>
                 <button type="button"
                         onClick={() => setPreview(tp.img)}
-                        className="mt-3 text-sm text-[#FF6B00] underline">Preview</button>
+                        className="mt-3 text-sm font-medium text-[#FF6B00] hover:underline">
+                  Preview
+                </button>
               </div>
             </label>
           ))}
@@ -170,15 +172,15 @@ const Index = () => {
           <div className="grid grid-cols-1 gap-3 rounded-2xl border bg-[#F6F7F9] p-5">
             <label className="flex items-center justify-between">
               <span>{t.opt_makecv}</span>
-              <input type="checkbox" name="make_cv" defaultChecked className="h-6 w-11 rounded-full accent-[#FF6B00]" />
+              <input type="checkbox" name="make_cv" defaultChecked className="switch" />
             </label>
             <label className="flex items-center justify-between">
               <span>{t.opt_score}</span>
-              <input type="checkbox" name="score_cv" className="h-6 w-11 rounded-full accent-[#FF6B00]" />
+              <input type="checkbox" name="score_cv" className="switch" />
             </label>
             <label className="flex items-center justify-between">
               <span>{t.opt_cover}</span>
-              <input type="checkbox" name="cover_letter" className="h-6 w-11 rounded-full accent-[#FF6B00]" />
+              <input type="checkbox" name="cover_letter" className="switch" />
             </label>
           </div>
 
@@ -288,8 +290,22 @@ const Index = () => {
 
       {/* Simple lightbox modal */}
       {preview && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onClick={() => setPreview(undefined)}>
-          <img src={preview} className="max-w-4xl w-[90%] rounded-2xl shadow-2xl" />
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+             onClick={() => setPreview(undefined)}>
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={preview}
+              alt="Template preview"
+              className="block max-w-[min(92vw,1100px)] max-h-[85vh] w-auto h-auto rounded-2xl shadow-2xl bg-white"
+              loading="eager"
+            />
+            <button
+              type="button"
+              className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-white text-[#FF6B00] shadow-md"
+              onClick={() => setPreview(undefined)}
+              aria-label="Close"
+            >✕</button>
+          </div>
         </div>
       )}
     </div>

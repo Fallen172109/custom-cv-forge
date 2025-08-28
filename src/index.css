@@ -145,3 +145,22 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 }
+
+@layer components{
+  .switch{
+    @apply relative inline-flex h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full border border-gray-300 bg-white transition-colors;
+  }
+  .switch::before{
+    content:"";
+    @apply absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-all;
+  }
+  .switch:checked{
+    @apply border-transparent bg-[#FF6B00];
+  }
+  .switch:checked::before{
+    left: 1.375rem; /* 22px */
+  }
+  .switch:focus-visible{
+    @apply ring-2 ring-offset-2 ring-[#FF6B00] outline-none;
+  }
+}
