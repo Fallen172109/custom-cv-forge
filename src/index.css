@@ -114,9 +114,6 @@
     @apply transition-transform duration-200 hover:scale-[1.01];
   }
 
-  .fade-in {
-    @apply animate-in fade-in duration-500;
-  }
 
   .card-shadow {
     @apply shadow-sm hover:shadow-md transition-shadow duration-200;
@@ -136,5 +133,15 @@
 
   .switch-thumb {
     @apply block w-5 h-5 bg-background rounded-full shadow-sm transition-transform data-[state=checked]:translate-x-5;
+  }
+}
+
+@layer utilities {
+  .fade-in {
+    animation: fade-in .35s ease-out both;
+  }
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 }
