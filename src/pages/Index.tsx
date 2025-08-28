@@ -5,7 +5,9 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
-import { Upload, CheckCircle, Download, Mail, ArrowRight } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Upload, CheckCircle, Download, Mail, ArrowRight, Send } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import I18N, { Lang } from '../i18n';
 import { CVData, CLData, AiResponse } from '../types';
@@ -28,6 +30,16 @@ const Index = () => {
   const [clEdit, setClEdit] = useState<CLData | undefined>();
   const [activeEditor, setActiveEditor] = useState<'cv'|'cl'|null>(null);
   const [sendEmail, setSendEmail] = useState('');
+  
+  // N8N Integration state
+  const [cvText, setCvText] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [jdLink, setJdLink] = useState('');
+  const [templateId, setTemplateId] = useState('modern');
+  const [userEmail, setUserEmail] = useState('');
+  const [sendEmailChecked, setSendEmailChecked] = useState(false);
+  const [cvPreview, setCvPreview] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleDownloadHTML = async () => {
     if (!activeEditor) return;
@@ -46,6 +58,90 @@ const Index = () => {
     if (html) {
       downloadHTML(html, filename);
     }
+  };
+
+  // N8N Integration Functions
+  const generateCV = async () => {
+    if (!cvText.trim()) {
+      toast({ description: "Please enter your CV text", variant: "destructive" });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const payload = {
+        cv_text: cvText.trim(),
+        job_description: jobDescription.trim(),
+        jd_link: jdLink.trim(),
+        template_id: templateId,
+        email: userEmail.trim(),
+        send_email: sendEmailChecked
+      };
+
+      const res = await fetch('https://kamil1721.app.n8n.cloud/webhook/cv/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error('Generation failed');
+      }
+
+      const data = await res.json();
+      setCvPreview(data.tailored_cv || '');
+      
+      toast({ description: "CV generated successfully!" });
+      scrollToSection('n8n-preview');
+    } catch (error) {
+      toast({ description: "Generate failed", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const sendCVEmail = async () => {
+    if (!userEmail.trim()) {
+      toast({ description: "Email required", variant: "destructive" });
+      return;
+    }
+    if (!cvPreview.trim()) {
+      toast({ description: "Generate CV first", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const res = await fetch('https://kamil1721.app.n8n.cloud/webhook/cv/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: userEmail.trim(), 
+          tailored_cv: cvPreview 
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error('Send failed');
+      }
+
+      toast({ description: "Sent! Check your inbox." });
+    } catch (error) {
+      toast({ description: "Send failed", variant: "destructive" });
+    }
+  };
+
+  const downloadCVMarkdown = () => {
+    if (!cvPreview.trim()) {
+      toast({ description: "Generate CV first", variant: "destructive" });
+      return;
+    }
+    
+    const blob = new Blob([cvPreview], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'tailored-cv.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
   
   const t = useMemo(() => I18N[lang], [lang]);
@@ -411,6 +507,154 @@ const Index = () => {
               >
                 Download HTML (fallback)
               </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* N8N CV Generation Section */}
+      <section id="n8n-form" className="container mx-auto px-4 py-12">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-heading font-bold text-center mb-8">
+            AI CV Tailor
+          </h2>
+          
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Form */}
+            <div className="space-y-6">
+              <div className="field">
+                <Label htmlFor="cv_text" className="label">CV Text</Label>
+                <Textarea 
+                  id="cv_text"
+                  value={cvText}
+                  onChange={(e) => setCvText(e.target.value)}
+                  className="textarea min-h-[200px]"
+                  placeholder="Paste your CV content here..."
+                />
+              </div>
+
+              <div className="field">
+                <Label htmlFor="job_description" className="label">Job Description</Label>
+                <Textarea 
+                  id="job_description"
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  className="textarea min-h-[150px]"
+                  placeholder="Paste the job description here..."
+                />
+              </div>
+
+              <div className="field">
+                <Label htmlFor="jd_link" className="label">Job Description Link</Label>
+                <Input 
+                  id="jd_link"
+                  type="text"
+                  value={jdLink}
+                  onChange={(e) => setJdLink(e.target.value)}
+                  className="input"
+                  placeholder="https://company.com/job-posting"
+                />
+              </div>
+
+              <div className="field">
+                <Label htmlFor="template_id" className="label">Template</Label>
+                <Select value={templateId} onValueChange={setTemplateId}>
+                  <SelectTrigger id="template_id" className="input">
+                    <SelectValue placeholder="Select template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="modern">Modern</SelectItem>
+                    <SelectItem value="classic">Classic</SelectItem>
+                    <SelectItem value="classic_alternative">Classic Alternative</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="field">
+                <Label htmlFor="email" className="label">Email</Label>
+                <Input 
+                  id="email"
+                  type="email"
+                  value={userEmail}
+                  onChange={(e) => setUserEmail(e.target.value)}
+                  className="input"
+                  placeholder="your@email.com"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input 
+                  id="send_email"
+                  type="checkbox"
+                  checked={sendEmailChecked}
+                  onChange={(e) => setSendEmailChecked(e.target.checked)}
+                  className="switch"
+                />
+                <Label htmlFor="send_email" className="label">Send email after generation</Label>
+              </div>
+
+              <Button 
+                id="btn-generate"
+                onClick={generateCV}
+                disabled={isGenerating}
+                className="w-full"
+                size="lg"
+              >
+                {isGenerating ? 'Generating...' : 'Generate Tailored CV'}
+              </Button>
+            </div>
+
+            {/* Preview */}
+            <div className="space-y-4">
+              <div className="field">
+                <Label className="label">Generated CV Preview</Label>
+                <Textarea 
+                  id="cv_preview"
+                  value={cvPreview}
+                  onChange={(e) => setCvPreview(e.target.value)}
+                  className="textarea min-h-[400px] font-mono text-sm"
+                  placeholder="Generated CV will appear here..."
+                  readOnly
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  id="btn-send"
+                  onClick={sendCVEmail}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  Email CV
+                </Button>
+                
+                <Button 
+                  id="btn-download"
+                  onClick={downloadCVMarkdown}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download .md
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Preview Section */}
+      <section id="n8n-preview" className="container mx-auto px-4 py-8">
+        {cvPreview && (
+          <div className="max-w-4xl mx-auto">
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+              <h3 className="font-heading font-semibold text-lg mb-4">Generated CV</h3>
+              <div className="prose max-w-none">
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-xl border">
+                  {cvPreview}
+                </pre>
+              </div>
             </div>
           </div>
         )}
