@@ -41,6 +41,7 @@ export type CLData = {
 export type AiResponse = {
   score?: number;
   tips?: string[];
+  notes?: string;
   cv_html?: string;
   cv_url?: string;
   cl_html?: string;

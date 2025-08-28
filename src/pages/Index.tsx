@@ -47,6 +47,31 @@ const Index = () => {
       downloadHTML(html, filename);
     }
   };
+
+  const downloadHtml = (html: string, filename: string) => {
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; 
+    a.download = filename; 
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const doSend = async (email: string, cv_html: string, cl_html: string) => {
+    const res = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: email,
+        subject: "Your tailored CV package",
+        message: "Hi! Attached are your generated files.",
+        cv_html,
+        cl_html
+      })
+    });
+    return res.ok;
+  };
   
   const t = useMemo(() => I18N[lang], [lang]);
 
@@ -99,11 +124,19 @@ const Index = () => {
       if (!generateRes.ok) {
         throw new Error(`Generation request failed: ${generateRes.status}`);
       }
-      const data: AiResponse = await generateRes.json();
+    const data: AiResponse = await generateRes.json();
 
-      // Update UI with the response data
-      setResults(data);
-      setAi(data);
+    // Normalize the response data
+    const normalized = {
+      score: Number(data?.score ?? 0),
+      notes: String(data?.notes ?? ""),
+      cv_html: String(data?.cv_html ?? ""),
+      cl_html: String(data?.cl_html ?? ""),
+      cv_data: data?.cv_data,
+      cl_data: data?.cl_data
+    };
+    setResults(normalized);
+    setAi(normalized);
       if (wantCV && data.cv_data) {
         setCvEdit(prev => ({ ...(prev || {} as any), ...data.cv_data } as CVData));
       }
@@ -112,29 +145,17 @@ const Index = () => {
       }
       setActiveEditor(wantCV ? 'cv' : (wantCL ? 'cl' : null));
 
-      // Pre-fill the sendEmail state with the user's email for convenience
-      const emailValue = data?.cv_data?.email || form.querySelector<HTMLInputElement>("input[name='email']")?.value || "";
-      setSendEmail(emailValue);
+    // Pre-fill the sendEmail state with the user's email for convenience
+    const emailValue = data?.cv_data?.email || form.querySelector<HTMLInputElement>("input[name='email']")?.value || "";
+    setSendEmail(emailValue);
 
-      // Automatically send the files via email using the second webhook
-      if (emailValue) {
-        const sendPayload: any = { email: emailValue };
-        if (data.cv_url) sendPayload.cv_url = data.cv_url;
-        if (data.cover_letter_url) sendPayload.cover_letter_url = data.cover_letter_url;
-        // (We can also include template_id or other info if the webhook needs it)
-        const sendRes = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sendPayload)
-        });
-        // We won't throw error on send failure; instead handle below to notify user
-        if (!sendRes.ok) {
-          console.error("Email sending failed:", sendRes.statusText);
-        }
+    // Automatically send the files via email using the second webhook
+    if (emailValue) {
+      const success = await doSend(emailValue, normalized.cv_html, normalized.cl_html).catch(() => false);
+      if (success) {
+        toast({ description: "We also sent the files to your email." });
       }
-
-      // Notify the user (toast) that an email was sent
-      toast({ description: "We also sent the files to your email." });
+    }
       // Scroll down to the editor section to show results
       setTimeout(() => {
         document.querySelector('#editor')?.scrollIntoView({ behavior: 'smooth' });
@@ -302,40 +323,47 @@ const Index = () => {
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-lg font-semibold mb-4">
                 <span>Match Score:</span>
-                <span>{results.score}%</span>
+                <span>{results?.score ?? 0}%</span>
               </div>
-              <Progress value={results.score} className="w-full h-3" />
+              <Progress value={results?.score ?? 0} className="w-full h-3" />
             </div>
 
             <div className="grid md:grid-cols-2 gap-4 mb-8">
-              <Button asChild className="hover-scale">
-                <a href={results.cv_url} download>
+              {!!results?.cv_html && (
+                <Button className="hover-scale" onClick={() => downloadHtml(results.cv_html, "cv.html")}>
                   <Download className="mr-2 h-4 w-4" />
                   Download CV
-                </a>
-              </Button>
-              
-              <Button variant="outline" asChild className="hover-scale">
-                <a href={results.cover_letter_url} download>
+                </Button>
+              )}
+              {!!results?.cl_html && (
+                <Button variant="outline" className="hover-scale" onClick={() => downloadHtml(results.cl_html, "cover-letter.html")}>
                   <Download className="mr-2 h-4 w-4" />
                   Download Cover Letter
-                </a>
-              </Button>
+                </Button>
+              )}
             </div>
 
-            <div>
-              <h3 className="font-heading font-semibold text-lg mb-4">
-                {t.topfixes_title}
-              </h3>
-              <ul className="space-y-2">
-                {results.tips.map((tip: string, index: number) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    <span className="text-sm">{tip}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {(() => {
+              const tipsList = Array.isArray(results?.tips) 
+                ? results.tips 
+                : (results?.notes ? String(results.notes).split(/\n+/).filter(Boolean) : []);
+              
+              return tipsList.length > 0 && (
+                <div>
+                  <h3 className="font-heading font-semibold text-lg mb-4">
+                    Top fixes
+                  </h3>
+                  <ul className="space-y-2">
+                    {tipsList.map((tip: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <span className="text-sm">{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
           </div>
         )}
       </section>
@@ -386,25 +414,21 @@ const Index = () => {
 
             {/* Actions */}
             <div className="flex flex-wrap gap-3 pt-2">
-              {ai?.cv_url && (
-                <a
+              {ai?.cv_html && (
+                <button
                   className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
-                  href={ai.cv_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => downloadHtml(ai.cv_html, "cv.html")}
                 >
                   Download CV
-                </a>
+                </button>
               )}
-              {ai?.cover_letter_url && (
-                <a
+              {ai?.cl_html && (
+                <button
                   className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
-                  href={ai.cover_letter_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => downloadHtml(ai.cl_html, "cover-letter.html")}
                 >
                   Download Cover Letter
-                </a>
+                </button>
               )}
               <input
                 type="email"
@@ -417,28 +441,16 @@ const Index = () => {
                 type="button"
                 className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
                 onClick={async () => {
-                  if (!ai) {
-                    toast({ description: "Please generate a CV or cover letter first." });
+                  if (!results?.cv_html && !results?.cl_html) {
+                    toast({ description: "Generate first." });
                     return;
                   }
                   if (!sendEmail) {
-                    toast({ description: "Please enter an email address." });
+                    toast({ description: "Enter an email." });
                     return;
                   }
-                  try {
-                    const payload: any = { email: sendEmail };
-                    if (ai.cv_url) payload.cv_url = ai.cv_url;
-                    if (ai.cover_letter_url) payload.cover_letter_url = ai.cover_letter_url;
-                    const res = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/send", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(payload)
-                    });
-                    if (!res.ok) throw new Error("Send failed");
-                    toast({ description: "Email sent successfully!" });
-                  } catch {
-                    toast({ description: "Failed to send email. Please try again." });
-                  }
+                  const ok = await doSend(sendEmail, results.cv_html || "", results.cl_html || "");
+                  toast({ description: ok ? "Email sent!" : "Failed to send email." });
                 }}
               >
                 Email me the files
