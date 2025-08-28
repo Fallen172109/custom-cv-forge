@@ -169,7 +169,7 @@ const Index = () => {
                    className="w-full rounded-xl border p-3 bg-white" />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 rounded-2xl border bg-[#F6F7F9] p-5">
+          <div className="grid gap-4 rounded-2xl border border-[#E5E7EB] bg-white p-5">
             <label className="flex items-center justify-between">
               <span>{t.opt_makecv}</span>
               <input type="checkbox" name="make_cv" defaultChecked className="switch" />
