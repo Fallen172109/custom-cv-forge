@@ -283,7 +283,7 @@ const Index = () => {
       }
 
       // Call the n8n generate webhook
-      const generateRes = await fetch("https://kamil1721.app.n8n.cloud/webhook/c258248a-a495-4f61-88fd-f703fd357923", {
+      const generateRes = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/generate", {
         method: "POST",
         body: finalFormData
       });
