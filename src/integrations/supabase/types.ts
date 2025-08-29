@@ -28,6 +28,7 @@ export type Database = {
           session_id: string | null
           target_role: string | null
           updated_at: string | null
+          user_id: string | null
           website: string | null
         }
         Insert: {
@@ -43,6 +44,7 @@ export type Database = {
           session_id?: string | null
           target_role?: string | null
           updated_at?: string | null
+          user_id?: string | null
           website?: string | null
         }
         Update: {
@@ -58,6 +60,7 @@ export type Database = {
           session_id?: string | null
           target_role?: string | null
           updated_at?: string | null
+          user_id?: string | null
           website?: string | null
         }
         Relationships: [
@@ -100,6 +103,7 @@ export type Database = {
           target_role: string | null
           tools_csv: string | null
           updated_at: string | null
+          user_id: string | null
           website: string | null
         }
         Insert: {
@@ -131,6 +135,7 @@ export type Database = {
           target_role?: string | null
           tools_csv?: string | null
           updated_at?: string | null
+          user_id?: string | null
           website?: string | null
         }
         Update: {
@@ -162,6 +167,7 @@ export type Database = {
           target_role?: string | null
           tools_csv?: string | null
           updated_at?: string | null
+          user_id?: string | null
           website?: string | null
         }
         Relationships: [
@@ -193,6 +199,7 @@ export type Database = {
           session_token: string | null
           template_used: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           ai_notes?: string | null
@@ -212,6 +219,7 @@ export type Database = {
           session_token?: string | null
           template_used?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           ai_notes?: string | null
@@ -231,6 +239,7 @@ export type Database = {
           session_token?: string | null
           template_used?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }

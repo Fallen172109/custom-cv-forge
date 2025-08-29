@@ -2,11 +2,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { CVData, CLData } from '@/types';
 
 export class DatabaseService {
-  // Session Management (replaces user authentication)
+  // Helper method to get current user
+  static async getCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
+  }
+
+  // Session Management with user authentication support
   static async createSession(email?: string) {
+    const user = await this.getCurrentUser();
+    const insertData: any = { email };
+    
+    // Associate session with authenticated user if available
+    if (user) {
+      insertData.user_id = user.id;
+    }
+
     const { data, error } = await supabase
       .from('cv_sessions')
-      .insert({ email })
+      .insert(insertData)
       .select()
       .single();
 
@@ -39,7 +53,8 @@ export class DatabaseService {
 
   // CV Data Operations
   static async saveCVData(cvData: CVData, sessionId: string) {
-    const insertData = {
+    const user = await this.getCurrentUser();
+    const insertData: any = {
       session_id: sessionId,
       name: cvData.name,
       target_role: cvData.target_role,
@@ -67,6 +82,11 @@ export class DatabaseService {
       edu2_details: cvData.edu2_details,
       headshot_url: cvData.headshot_url,
     };
+
+    // Associate CV data with authenticated user if available
+    if (user) {
+      insertData.user_id = user.id;
+    }
 
     const { data, error } = await supabase
       .from('cv_data')
@@ -103,7 +123,8 @@ export class DatabaseService {
 
   // Cover Letter Data Operations
   static async saveCLData(clData: CLData, sessionId: string) {
-    const insertData = {
+    const user = await this.getCurrentUser();
+    const insertData: any = {
       session_id: sessionId,
       name: clData.name,
       email: clData.email,
@@ -115,6 +136,11 @@ export class DatabaseService {
       target_role: clData.target_role,
       website: clData.website,
     };
+
+    // Associate cover letter data with authenticated user if available
+    if (user) {
+      insertData.user_id = user.id;
+    }
 
     const { data, error } = await supabase
       .from('cover_letter_data')
