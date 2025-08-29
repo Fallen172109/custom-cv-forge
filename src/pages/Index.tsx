@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,10 @@ import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { Upload, CheckCircle, Download, Mail, ArrowRight } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useSession } from '@/hooks/useSession';
+import { DatabaseService } from '@/services/database';
+import { TemplateManager } from '@/utils/templateManager';
+import { PDFGenerator } from '@/services/pdfGenerator';
 import I18N, { Lang } from '../i18n';
 import { CVData, CLData, AiResponse } from '../types';
 import CVEditor from '../components/CVEditor';
@@ -15,8 +19,11 @@ import { renderCV, renderCL } from '../renderers';
 import { downloadHTML } from '../utils/download';
 
 const Index = () => {
+  const { sessionId, loading: sessionLoading } = useSession();
   const [lang, setLang] = useState<Lang>('en');
   const [selectedTemplate, setSelectedTemplate] = useState<'classic'|'modern'|'classic_alternative'>('modern');
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [preview, setPreview] = useState<string | undefined>();
@@ -28,6 +35,57 @@ const Index = () => {
   const [clEdit, setClEdit] = useState<CLData | undefined>();
   const [activeEditor, setActiveEditor] = useState<'cv'|'cl'|null>(null);
   const [sendEmail, setSendEmail] = useState('');
+
+  // Load templates on component mount
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  // Load existing session data if available
+  useEffect(() => {
+    if (sessionId) {
+      loadSessionData();
+    }
+  }, [sessionId]);
+
+  const loadTemplates = async () => {
+    try {
+      const activeTemplates = await TemplateManager.getActiveTemplates();
+      setTemplates(activeTemplates);
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      // Fallback to hardcoded templates
+      setTemplates([
+        { slug: 'classic', name: 'Classic', preview_image_url: 'https://thipxofcylqownijfybq.supabase.co/storage/v1/object/public/templates/classic/preview.png' },
+        { slug: 'modern', name: 'Modern', preview_image_url: 'https://thipxofcylqownijfybq.supabase.co/storage/v1/object/public/templates/modern/preview.png' },
+        { slug: 'classic_alternative', name: 'Classic Alternative', preview_image_url: 'https://thipxofcylqownijfybq.supabase.co/storage/v1/object/public/templates/classic_alternative/preview.png' }
+      ]);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  const loadSessionData = async () => {
+    if (!sessionId) return;
+
+    try {
+      // Load existing CV and CL data for this session
+      const [cvData, clData] = await Promise.all([
+        DatabaseService.getCVData(sessionId).catch(() => null),
+        DatabaseService.getCLData(sessionId).catch(() => null),
+      ]);
+
+      if (cvData) {
+        setCvEdit(DatabaseService.convertDbCVDataToCVData(cvData));
+      }
+
+      if (clData) {
+        setClEdit(DatabaseService.convertDbCLDataToCLData(clData));
+      }
+    } catch (error) {
+      console.error('Error loading session data:', error);
+    }
+  };
 
   const handleDownloadHTML = async () => {
     if (!activeEditor) return;
@@ -52,25 +110,75 @@ const Index = () => {
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; 
-    a.download = filename; 
+    a.href = url;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const downloadPdf = async (html: string, filename: string) => {
+    try {
+      const pdfFilename = filename.replace('.html', '.pdf');
+      const optimizedHtml = PDFGenerator.optimizeHTMLForPDF(html);
+
+      const success = await PDFGenerator.downloadPDFFromHTML(optimizedHtml, pdfFilename);
+
+      if (!success) {
+        // Fallback to print dialog
+        PDFGenerator.printToPDF(optimizedHtml, pdfFilename.replace('.pdf', ''));
+        toast({
+          description: "PDF generation failed. Please use the print dialog to save as PDF."
+        });
+      } else {
+        toast({
+          description: "PDF downloaded successfully!"
+        });
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast({
+        description: "PDF generation failed. Please try the HTML download instead.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const doSend = async (email: string, cv_html: string, cl_html: string) => {
-    const res = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        to: email,
-        subject: "Your tailored CV package",
-        message: "Hi! Attached are your generated files.",
-        cv_html,
-        cl_html
-      })
-    });
-    return res.ok;
+    try {
+      // Generate PDFs in the frontend
+      console.log('🔄 Generating PDFs...');
+
+      const cvPdfBlob = await PDFGenerator.generatePDFFromHTML(cv_html, 'CV.pdf');
+      const clPdfBlob = await PDFGenerator.generatePDFFromHTML(cl_html, 'Cover_Letter.pdf');
+
+      if (!cvPdfBlob || !clPdfBlob) {
+        throw new Error('Failed to generate PDFs');
+      }
+
+      console.log('✅ PDFs generated successfully');
+
+      // Create FormData to send PDFs as files
+      const formData = new FormData();
+      formData.append('to', email);
+      formData.append('subject', 'Your tailored CV package');
+      formData.append('message', 'Hi! Please find your tailored CV and Cover Letter attached as PDF files.');
+      formData.append('cv_pdf', cvPdfBlob, 'CV.pdf');
+      formData.append('cl_pdf', clPdfBlob, 'Cover_Letter.pdf');
+
+      console.log('📤 Sending PDFs to n8n...');
+
+      const res = await fetch("https://kamil1721.app.n8n.cloud/webhook/44d0c9f1-520d-44c6-a119-94c4affa9663", {
+        method: "POST",
+        body: formData // No Content-Type header - let browser set it for FormData
+      });
+
+      console.log('📡 n8n Response Status:', res.status);
+      return res.ok;
+
+    } catch (error) {
+      console.error('❌ Error in doSend:', error);
+      return false;
+    }
   };
   
   const t = useMemo(() => I18N[lang], [lang]);
@@ -81,56 +189,79 @@ const Index = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (!sessionId) {
+      toast({ description: "Session not initialized. Please refresh the page." });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const form = e.currentTarget;
       const formData = new FormData(form);
-      
+
       // Get form field values
       const rawDesc = (formData.get('job_description') as string)?.trim() || "";
       const rawLink = (formData.get('job_url') as string)?.trim() || "";
+      const userEmail = (formData.get('email') as string) || "";
 
       // Only send link if it's a URL; otherwise send as description
       const isUrl = /^https?:\/\//i.test(rawLink);
       const job_description = isUrl ? (rawDesc || "") : (rawDesc || rawLink || "");
       const jd_link = isUrl ? rawLink : "";
 
+      // Debug logging
+      console.log('🔍 URL Detection:', { rawLink, rawDesc, isUrl, job_description, jd_link });
+
       // Template mapping to match backend
-      const template_id = ({
-        modern: "modern",
-        classic: "classic", 
-        classic_alternative: "classic-alt", // map underscore to hyphen
-      })[selectedTemplate] || "classic";
+      const template_id = TemplateManager.mapTemplateSlugForBackend(selectedTemplate);
 
       // What to generate
       const tasks: string[] = [];
       if (wantCV) tasks.push("cv");
       if (wantCL) tasks.push("cover_letter");
       if (wantScore) tasks.push("score");
-      
+
       if (tasks.length === 0) {
         setIsSubmitting(false);
         toast({ description: "Please select at least one option (CV, Cover Letter, or Score)." });
         return;
       }
-      
+
       const mode = tasks.length ? tasks.join("_") : "cv_cover_letter_score";
 
-      // Get CV file content (you may need to read the file)
+      // Handle file upload to Supabase
       const cvFile = formData.get('cv_file') as File;
-      let cv_text = "";
+      let originalFilePath = "";
+
       if (cvFile) {
-        // For now, we'll send the file via FormData as before, but structure the other fields properly
-        // The backend will extract cv_text from the file
+        try {
+          const uploadResult = await DatabaseService.uploadCVFile(cvFile, sessionId);
+          originalFilePath = uploadResult.path;
+        } catch (error) {
+          console.error('Error uploading CV file:', error);
+          toast({ description: "Failed to upload CV file. Please try again." });
+          setIsSubmitting(false);
+          return;
+        }
       }
 
+      // Update session with job details
+      await DatabaseService.updateSession(sessionId, {
+        email: userEmail,
+        job_description,
+        job_url: jd_link,
+        template_used: template_id,
+        original_cv_file_path: originalFilePath,
+      });
+
       const payload = {
-        cv_text: cv_text,
+        cv_text: "",
         job_description,
         jd_link,
         template_id,
-        user_email: (formData.get('email') as string) || "",
+        user_email: userEmail,
         mode
       };
 
@@ -141,15 +272,65 @@ const Index = () => {
         finalFormData.append(key, value);
       });
 
+      // Debug: Log what we're sending
+      console.log('🚀 Sending to n8n webhook:');
+      console.log('📄 File:', cvFile?.name, cvFile?.size, 'bytes');
+      console.log('📋 Payload:', payload);
+
+      // Log FormData contents
+      for (let [key, value] of finalFormData.entries()) {
+        console.log(`📝 FormData[${key}]:`, value instanceof File ? `File: ${value.name}` : value);
+      }
+
       // Call the n8n generate webhook
-      const generateRes = await fetch("https://kamil1721.app.n8n.cloud/webhook/cv/generate", {
+      const generateRes = await fetch("https://kamil1721.app.n8n.cloud/webhook/c258248a-a495-4f61-88fd-f703fd357923", {
         method: "POST",
         body: finalFormData
       });
+
+      console.log('📡 n8n Response Status:', generateRes.status);
+
       if (!generateRes.ok) {
-        throw new Error(`Generation request failed: ${generateRes.status}`);
+        let errorText;
+        try {
+          // Try to parse as JSON first for structured error
+          const errorJson = await generateRes.json();
+          errorText = JSON.stringify(errorJson, null, 2);
+          console.error('❌ n8n Error Response (JSON):', errorJson);
+        } catch {
+          // Fallback to text if not JSON
+          errorText = await generateRes.text();
+          console.error('❌ n8n Error Response (Text):', errorText);
+        }
+
+        // Log request details for debugging
+        console.error('❌ Request Details:', {
+          url: generateRes.url,
+          status: generateRes.status,
+          statusText: generateRes.statusText,
+          headers: Object.fromEntries(generateRes.headers.entries())
+        });
+
+        throw new Error(`Generation request failed: ${generateRes.status} - ${errorText}`);
       }
     const data: AiResponse = await generateRes.json();
+
+    console.log('📨 n8n Response Data:', data);
+    console.log('📨 Response Type:', typeof data);
+    console.log('📨 Response Keys:', Object.keys(data || {}));
+    console.log('📨 cv_html present:', !!data?.cv_html);
+
+    // Check if AI returned empty results (likely scraping failure)
+    if (!data.cv_html && !data.cl_html && !data.score) {
+      console.warn('⚠️ AI returned empty results - possible job posting scraping failure');
+      toast({
+        description: "Job posting could not be processed. The URL might be blocked or require manual copy-paste.",
+        variant: "destructive"
+      });
+    }
+    console.log('📨 cl_html present:', !!data?.cl_html);
+    console.log('📨 cv_data present:', !!data?.cv_data);
+    console.log('📨 cl_data present:', !!data?.cl_data);
 
     // Normalize the response data
     const normalized = {
@@ -162,13 +343,54 @@ const Index = () => {
     };
     setResults(normalized);
     setAi(normalized);
+
+    // Save generated data to Supabase
+    try {
+      // Update session with AI results
+      await DatabaseService.updateSession(sessionId, {
+        generated_cv_html: normalized.cv_html,
+        generated_cl_html: normalized.cl_html,
+        ai_score: normalized.score,
+        ai_notes: normalized.notes,
+      });
+
+      // Save CV data if generated
       if (wantCV && data.cv_data) {
-        setCvEdit(prev => ({ ...(prev || {} as any), ...data.cv_data } as CVData));
+        const cvData = { ...(cvEdit || {} as any), ...data.cv_data } as CVData;
+        setCvEdit(cvData);
+        await DatabaseService.saveCVData(cvData, sessionId);
       }
+
+      // Save CL data if generated
       if (wantCL && data.cl_data) {
-        setClEdit(prev => ({ ...(prev || {} as any), ...data.cl_data } as CLData));
+        const clData = { ...(clEdit || {} as any), ...data.cl_data } as CLData;
+        setClEdit(clData);
+        await DatabaseService.saveCLData(clData, sessionId);
       }
-      setActiveEditor(wantCV ? 'cv' : (wantCL ? 'cl' : null));
+
+      // Store generated HTML files in Supabase storage
+      if (normalized.cv_html) {
+        await DatabaseService.uploadGeneratedFile(
+          normalized.cv_html,
+          `cv_${Date.now()}.html`,
+          sessionId
+        );
+      }
+
+      if (normalized.cl_html) {
+        await DatabaseService.uploadGeneratedFile(
+          normalized.cl_html,
+          `cover_letter_${Date.now()}.html`,
+          sessionId
+        );
+      }
+    } catch (error) {
+      console.error('Error saving data to Supabase:', error);
+      // Don't fail the whole process if saving fails
+      toast({ description: "Data generated successfully, but failed to save to database." });
+    }
+
+    setActiveEditor(wantCV ? 'cv' : (wantCL ? 'cl' : null));
 
     // Pre-fill the sendEmail state with the user's email for convenience
     const emailValue = data?.cv_data?.email || form.querySelector<HTMLInputElement>("input[name='email']")?.value || "";
@@ -198,6 +420,18 @@ const Index = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading state while session is initializing
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Initializing CV Tailor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -272,34 +506,58 @@ const Index = () => {
       {/* Templates Section */}
       <section id="templates" className="container mx-auto px-4 py-12">
         <h2 className="text-3xl font-semibold text-center mb-8">{t.templates_title}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          {[
-            { key: 'classic', title: t.classic, img: 'https://thipxofcylqownijfybq.supabase.co/storage/v1/object/public/templates/classic/preview.png' },
-            { key: 'modern', title: t.modern, img: 'https://thipxofcylqownijfybq.supabase.co/storage/v1/object/public/templates/modern/preview.png' },
-            { key: 'classic_alternative', title: t.classic_alt, img: 'https://thipxofcylqownijfybq.supabase.co/storage/v1/object/public/templates/classic_alternative/preview.png' }
-          ].map(tp => (
-            <label key={tp.key} className="group cursor-pointer">
-              <div className="rounded-2xl border border-gray-200 shadow-sm p-5 bg-white">
-                <div className="relative w-full h-72 rounded-xl overflow-hidden bg-white mb-4">
-                  <img src={tp.img} alt={tp.title}
-                       className="absolute inset-0 w-full h-full object-contain" />
-                </div>
-                 <div className="flex items-center justify-between">
-                   <div className="text-lg font-semibold">{tp.title}</div>
-                   <input type="radio" name="template" value={tp.key}
-                          defaultChecked={tp.key === 'modern'}
-                          onChange={() => setSelectedTemplate(tp.key as 'classic'|'modern'|'classic_alternative')}
-                          className="h-5 w-5 accent-[#FF6B00]" />
-                 </div>
-                <button type="button"
-                        onClick={() => setPreview(tp.img)}
-                        className="mt-3 text-sm font-medium text-[#FF6B00] hover:underline">
-                  Preview
-                </button>
-              </div>
-            </label>
-          ))}
-        </div>
+        {templatesLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <span className="ml-3 text-muted-foreground">Loading templates...</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            {templates.map(template => {
+              const displayName = TemplateManager.getDisplayName(template);
+              const previewUrl = TemplateManager.getPreviewUrl(template);
+
+              return (
+                <label key={template.slug} className="group cursor-pointer">
+                  <div className="rounded-2xl border border-gray-200 shadow-sm p-5 bg-white">
+                    <div className="relative w-full h-72 rounded-xl overflow-hidden bg-white mb-4">
+                      <img
+                        src={previewUrl}
+                        alt={displayName}
+                        className="absolute inset-0 w-full h-full object-contain"
+                        onError={(e) => {
+                          // Fallback to placeholder if image fails to load
+                          (e.target as HTMLImageElement).src = '/placeholder-template.png';
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-lg font-semibold">{displayName}</div>
+                      <input
+                        type="radio"
+                        name="template"
+                        value={template.slug}
+                        defaultChecked={template.slug === 'modern'}
+                        onChange={() => setSelectedTemplate(template.slug as 'classic'|'modern'|'classic_alternative')}
+                        className="h-5 w-5 accent-[#FF6B00]"
+                      />
+                    </div>
+                    {template.description && (
+                      <p className="text-sm text-muted-foreground mt-2">{template.description}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setPreview(previewUrl)}
+                      className="mt-3 text-sm font-medium text-[#FF6B00] hover:underline"
+                    >
+                      Preview
+                    </button>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* Form Section */}
@@ -361,16 +619,28 @@ const Index = () => {
 
             <div className="grid md:grid-cols-2 gap-4 mb-8">
               {!!results?.cv_html && (
-                <Button className="hover-scale" onClick={() => downloadHtml(results.cv_html, "cv.html")}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download CV
-                </Button>
+                <div className="space-y-2">
+                  <Button className="hover-scale w-full" onClick={() => downloadPdf(results.cv_html, "cv.pdf")}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download CV (PDF)
+                  </Button>
+                  <Button variant="outline" className="hover-scale w-full" onClick={() => downloadHtml(results.cv_html, "cv.html")}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download CV (HTML)
+                  </Button>
+                </div>
               )}
               {!!results?.cl_html && (
-                <Button variant="outline" className="hover-scale" onClick={() => downloadHtml(results.cl_html, "cover-letter.html")}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download Cover Letter
-                </Button>
+                <div className="space-y-2">
+                  <Button className="hover-scale w-full" onClick={() => downloadPdf(results.cl_html, "cover-letter.pdf")}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Cover Letter (PDF)
+                  </Button>
+                  <Button variant="outline" className="hover-scale w-full" onClick={() => downloadHtml(results.cl_html, "cover-letter.html")}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Cover Letter (HTML)
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -458,20 +728,36 @@ const Index = () => {
             {/* Actions */}
             <div className="flex flex-wrap gap-3 pt-2">
               {ai?.cv_html && (
-                <button
-                  className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
-                  onClick={() => downloadHtml(ai.cv_html, "cv.html")}
-                >
-                  Download CV
-                </button>
+                <>
+                  <button
+                    className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
+                    onClick={() => downloadPdf(ai.cv_html, "cv.pdf")}
+                  >
+                    Download CV (PDF)
+                  </button>
+                  <button
+                    className="rounded-xl border border-[#FF6B00] text-[#FF6B00] px-4 py-2"
+                    onClick={() => downloadHtml(ai.cv_html, "cv.html")}
+                  >
+                    Download CV (HTML)
+                  </button>
+                </>
               )}
               {ai?.cl_html && (
-                <button
-                  className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
-                  onClick={() => downloadHtml(ai.cl_html, "cover-letter.html")}
-                >
-                  Download Cover Letter
-                </button>
+                <>
+                  <button
+                    className="rounded-xl bg-[#FF6B00] text-white px-4 py-2"
+                    onClick={() => downloadPdf(ai.cl_html, "cover-letter.pdf")}
+                  >
+                    Download Cover Letter (PDF)
+                  </button>
+                  <button
+                    className="rounded-xl border border-[#FF6B00] text-[#FF6B00] px-4 py-2"
+                    onClick={() => downloadHtml(ai.cl_html, "cover-letter.html")}
+                  >
+                    Download Cover Letter (HTML)
+                  </button>
+                </>
               )}
               <input
                 type="email"

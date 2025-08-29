@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{name}} - Cover Letter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-size: 14px;
+            margin: 0;
+            padding: 0;
+        }
+        .v5_307 {
+            width: 612px;
+            height: 792px;
+            background: rgba(255,255,255,1);
+            opacity: 1;
+            position: relative;
+            top: 0px;
+            left: 0px;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        .v5_328 {
+            width: 299px;
+            color: rgba(0,91,162,1);
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            font-family: Lora;
+            font-weight: Bold;
+            font-size: 24px;
+            opacity: 1;
+            text-align: left;
+        }
+        .v5_329 {
+            width: 103px;
+            height: 52px;
+            opacity: 1;
+            position: absolute;
+            top: 40px;
+            left: 444px;
+            overflow: hidden;
+        }
+        .v5_330 {
+            width: 79px;
+            color: rgba(0,91,162,1);
+            position: relative;
+            top: 0px;
+            left: 0px;
+            font-family: Inter;
+            font-weight: Medium;
+            font-size: 10px;
+            opacity: 1;
+            text-align: left;
+        }
+        .v5_331 {
+            width: 103px;
+            color: rgba(0,91,162,1);
+            position: absolute;
+            top: 20px;
+            left: 0px;
+            font-family: Inter;
+            font-weight: Medium;
+            font-size: 10px;
+            opacity: 1;
+            text-align: left;
+        }
+        .v5_332 {
+            width: 89px;
+            color: rgba(0,91,162,1);
+            position: absolute;
+            top: 40px;
+            left: 0px;
+            font-family: Inter;
+            font-weight: Medium;
+            font-size: 10px;
+            opacity: 1;
+            text-align: left;
+        }
+        .cl-date {
+            position: absolute;
+            top: 130px;
+            right: 40px;
+            font-family: Inter;
+            font-size: 10px;
+            color: rgba(69,69,69,1);
+        }
+        .cl-company {
+            position: absolute;
+            top: 160px;
+            left: 40px;
+            font-family: Inter;
+            font-size: 12px;
+            color: rgba(0,0,0,1);
+            line-height: 1.4;
+        }
+        .cl-greeting {
+            position: absolute;
+            top: 220px;
+            left: 40px;
+            font-family: Inter;
+            font-size: 12px;
+            font-weight: Semi Bold;
+            color: rgba(0,0,0,1);
+        }
+        .cl-content {
+            position: absolute;
+            top: 250px;
+            left: 40px;
+            width: 532px;
+            font-family: Inter;
+            font-size: 12px;
+            color: rgba(69,69,69,1);
+            line-height: 1.6;
+        }
+        .cl-paragraph {
+            margin-bottom: 16px;
+        }
+        .cl-closing {
+            position: absolute;
+            bottom: 120px;
+            left: 40px;
+            font-family: Inter;
+            font-size: 12px;
+            color: rgba(69,69,69,1);
+            line-height: 1.6;
+        }
+        .cl-signature {
+            position: absolute;
+            bottom: 60px;
+            left: 40px;
+            font-family: Inter;
+            font-size: 12px;
+            font-weight: Semi Bold;
+            color: rgba(0,0,0,1);
+        }
+    </style>
+</head>
+<body>
+    <div class="v5_307">
+        <!-- Header -->
+        <div class="v5_328">{{name}}</div>
+        <div class="v5_329">
+            <div class="v5_330">{{website}}</div>
+            <div class="v5_331">{{email}}</div>
+            <div class="v5_332">{{phone}}</div>
+        </div>
+        
+        <!-- Date -->
+        <div class="cl-date">[Date]</div>
+        
+        <!-- Company Info -->
+        <div class="cl-company">
+            Hiring Manager<br>
+            {{company}}<br>
+            [Company Address]
+        </div>
+        
+        <!-- Greeting -->
+        <div class="cl-greeting">Dear Hiring Manager,</div>
+        
+        <!-- Content -->
+        <div class="cl-content">
+            <div class="cl-paragraph">{{cover_intro}}</div>
+            <div class="cl-paragraph">{{cover_body}}</div>
+            <div class="cl-paragraph">{{cover_closing}}</div>
+        </div>
+        
+        <!-- Closing -->
+        <div class="cl-closing">
+            Thank you for your time and consideration. I look forward to hearing from you.
+        </div>
+        
+        <!-- Signature -->
+        <div class="cl-signature">
+            Sincerely,<br><br>
+            {{name}}
+        </div>
+    </div>
+</body>
+</html>

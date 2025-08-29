@@ -14,6 +14,268 @@ export type Database = {
   }
   public: {
     Tables: {
+      cover_letter_data: {
+        Row: {
+          company: string | null
+          cover_body: string | null
+          cover_closing: string | null
+          cover_intro: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string | null
+          phone: string | null
+          session_id: string | null
+          target_role: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          company?: string | null
+          cover_body?: string | null
+          cover_closing?: string | null
+          cover_intro?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          session_id?: string | null
+          target_role?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          company?: string | null
+          cover_body?: string | null
+          cover_closing?: string | null
+          cover_intro?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          session_id?: string | null
+          target_role?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cover_letter_data_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "cv_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cv_data: {
+        Row: {
+          created_at: string | null
+          edu1_dates: string | null
+          edu1_degree: string | null
+          edu1_details: string | null
+          edu1_school: string | null
+          edu2_dates: string | null
+          edu2_degree: string | null
+          edu2_details: string | null
+          edu2_school: string | null
+          email: string | null
+          exp1_bullets: string | null
+          exp1_company: string | null
+          exp1_dates: string | null
+          exp1_title: string | null
+          exp2_bullets: string | null
+          exp2_company: string | null
+          exp2_dates: string | null
+          exp2_title: string | null
+          headshot_url: string | null
+          id: string
+          name: string | null
+          phone: string | null
+          session_id: string | null
+          skills_csv: string | null
+          summary: string | null
+          target_role: string | null
+          tools_csv: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          edu1_dates?: string | null
+          edu1_degree?: string | null
+          edu1_details?: string | null
+          edu1_school?: string | null
+          edu2_dates?: string | null
+          edu2_degree?: string | null
+          edu2_details?: string | null
+          edu2_school?: string | null
+          email?: string | null
+          exp1_bullets?: string | null
+          exp1_company?: string | null
+          exp1_dates?: string | null
+          exp1_title?: string | null
+          exp2_bullets?: string | null
+          exp2_company?: string | null
+          exp2_dates?: string | null
+          exp2_title?: string | null
+          headshot_url?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          session_id?: string | null
+          skills_csv?: string | null
+          summary?: string | null
+          target_role?: string | null
+          tools_csv?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          edu1_dates?: string | null
+          edu1_degree?: string | null
+          edu1_details?: string | null
+          edu1_school?: string | null
+          edu2_dates?: string | null
+          edu2_degree?: string | null
+          edu2_details?: string | null
+          edu2_school?: string | null
+          email?: string | null
+          exp1_bullets?: string | null
+          exp1_company?: string | null
+          exp1_dates?: string | null
+          exp1_title?: string | null
+          exp2_bullets?: string | null
+          exp2_company?: string | null
+          exp2_dates?: string | null
+          exp2_title?: string | null
+          headshot_url?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          session_id?: string | null
+          skills_csv?: string | null
+          summary?: string | null
+          target_role?: string | null
+          tools_csv?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cv_data_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "cv_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cv_sessions: {
+        Row: {
+          ai_notes: string | null
+          ai_score: number | null
+          company_name: string | null
+          cover_letter_pdf_url: string | null
+          created_at: string | null
+          cv_pdf_url: string | null
+          email: string | null
+          generated_cl_html: string | null
+          generated_cv_html: string | null
+          id: string
+          job_description: string | null
+          job_title: string | null
+          job_url: string | null
+          original_cv_file_path: string | null
+          session_token: string | null
+          template_used: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_notes?: string | null
+          ai_score?: number | null
+          company_name?: string | null
+          cover_letter_pdf_url?: string | null
+          created_at?: string | null
+          cv_pdf_url?: string | null
+          email?: string | null
+          generated_cl_html?: string | null
+          generated_cv_html?: string | null
+          id?: string
+          job_description?: string | null
+          job_title?: string | null
+          job_url?: string | null
+          original_cv_file_path?: string | null
+          session_token?: string | null
+          template_used?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_notes?: string | null
+          ai_score?: number | null
+          company_name?: string | null
+          cover_letter_pdf_url?: string | null
+          created_at?: string | null
+          cv_pdf_url?: string | null
+          email?: string | null
+          generated_cl_html?: string | null
+          generated_cv_html?: string | null
+          id?: string
+          job_description?: string | null
+          job_title?: string | null
+          job_url?: string | null
+          original_cv_file_path?: string | null
+          session_token?: string | null
+          template_used?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      cv_templates: {
+        Row: {
+          cl_html_template: string | null
+          created_at: string | null
+          css_styles: string | null
+          cv_html_template: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          preview_image_url: string | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          cl_html_template?: string | null
+          created_at?: string | null
+          css_styles?: string | null
+          cv_html_template?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          preview_image_url?: string | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          cl_html_template?: string | null
+          created_at?: string | null
+          css_styles?: string | null
+          cv_html_template?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          preview_image_url?: string | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       jobs_history: {
         Row: {
           cover_letter_pdf_url: string | null

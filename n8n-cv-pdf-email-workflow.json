@@ -1,0 +1,177 @@
+{
+  "name": "CV PDF Email Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cv/send",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "cv-send-webhook"
+    },
+    {
+      "parameters": {
+        "url": "=data:text/html;charset=utf-8,{{ encodeURIComponent($json.body.cv_html) }}",
+        "options": {
+          "pdf": {
+            "format": "A4",
+            "margin": {
+              "top": "0.5in",
+              "right": "0.5in",
+              "bottom": "0.5in",
+              "left": "0.5in"
+            },
+            "printBackground": true
+          }
+        }
+      },
+      "id": "cv-pdf-generator",
+      "name": "Generate CV PDF",
+      "type": "n8n-nodes-base.puppeteer",
+      "typeVersion": 1,
+      "position": [460, 200]
+    },
+    {
+      "parameters": {
+        "url": "=data:text/html;charset=utf-8,{{ encodeURIComponent($json.body.cl_html) }}",
+        "options": {
+          "pdf": {
+            "format": "A4",
+            "margin": {
+              "top": "0.5in",
+              "right": "0.5in",
+              "bottom": "0.5in",
+              "left": "0.5in"
+            },
+            "printBackground": true
+          }
+        }
+      },
+      "id": "cl-pdf-generator",
+      "name": "Generate Cover Letter PDF",
+      "type": "n8n-nodes-base.puppeteer",
+      "typeVersion": 1,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge-pdfs",
+      "name": "Merge PDFs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@yourdomain.com",
+        "toEmail": "={{ $('Webhook').first().json.body.to }}",
+        "subject": "={{ $('Webhook').first().json.body.subject || 'Your Tailored CV Package' }}",
+        "text": "Hi!\n\nPlease find your tailored CV and Cover Letter attached as PDF files.\n\nBest regards,\nCV Tailor Team",
+        "attachments": "={{ \n  const attachments = [];\n  \n  // Add CV PDF if available\n  const cvPdf = $('Generate CV PDF').first()?.binary?.data;\n  if (cvPdf) {\n    attachments.push({\n      name: 'CV.pdf',\n      data: cvPdf,\n      type: 'application/pdf'\n    });\n  }\n  \n  // Add Cover Letter PDF if available\n  const clPdf = $('Generate Cover Letter PDF').first()?.binary?.data;\n  if (clPdf) {\n    attachments.push({\n      name: 'Cover_Letter.pdf',\n      data: clPdf,\n      type: 'application/pdf'\n    });\n  }\n  \n  return attachments;\n}}",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Email with PDFs",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "credentials": {
+        "smtp": {
+          "id": "your-smtp-credentials-id",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"PDFs sent successfully to \" + $('Webhook').first().json.body.to } }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generate CV PDF",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Cover Letter PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate CV PDF": {
+      "main": [
+        [
+          {
+            "node": "Merge PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Cover Letter PDF": {
+      "main": [
+        [
+          {
+            "node": "Merge PDFs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge PDFs": {
+      "main": [
+        [
+          {
+            "node": "Send Email with PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email with PDFs": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "id": "cv-pdf-email-workflow",
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "tags": []
+}
