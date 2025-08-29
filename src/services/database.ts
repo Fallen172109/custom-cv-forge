@@ -11,12 +11,16 @@ export class DatabaseService {
   // Session Management with user authentication support
   static async createSession(email?: string) {
     const user = await this.getCurrentUser();
-    const insertData: any = { email };
     
-    // Associate session with authenticated user if available
-    if (user) {
-      insertData.user_id = user.id;
+    // Require authentication for session creation
+    if (!user) {
+      throw new Error('Authentication required to create session');
     }
+    
+    const insertData = { 
+      email,
+      user_id: user.id
+    };
 
     const { data, error } = await supabase
       .from('cv_sessions')
@@ -54,8 +58,15 @@ export class DatabaseService {
   // CV Data Operations
   static async saveCVData(cvData: CVData, sessionId: string) {
     const user = await this.getCurrentUser();
-    const insertData: any = {
+    
+    // Require authentication for saving CV data
+    if (!user) {
+      throw new Error('Authentication required to save CV data');
+    }
+
+    const insertData = {
       session_id: sessionId,
+      user_id: user.id,
       name: cvData.name,
       target_role: cvData.target_role,
       email: cvData.email,
@@ -82,11 +93,6 @@ export class DatabaseService {
       edu2_details: cvData.edu2_details,
       headshot_url: cvData.headshot_url,
     };
-
-    // Associate CV data with authenticated user if available
-    if (user) {
-      insertData.user_id = user.id;
-    }
 
     const { data, error } = await supabase
       .from('cv_data')
@@ -124,8 +130,15 @@ export class DatabaseService {
   // Cover Letter Data Operations
   static async saveCLData(clData: CLData, sessionId: string) {
     const user = await this.getCurrentUser();
-    const insertData: any = {
+    
+    // Require authentication for saving cover letter data
+    if (!user) {
+      throw new Error('Authentication required to save cover letter data');
+    }
+
+    const insertData = {
       session_id: sessionId,
+      user_id: user.id,
       name: clData.name,
       email: clData.email,
       phone: clData.phone,
@@ -136,11 +149,6 @@ export class DatabaseService {
       target_role: clData.target_role,
       website: clData.website,
     };
-
-    // Associate cover letter data with authenticated user if available
-    if (user) {
-      insertData.user_id = user.id;
-    }
 
     const { data, error } = await supabase
       .from('cover_letter_data')

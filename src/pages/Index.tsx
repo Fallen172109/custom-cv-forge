@@ -5,8 +5,9 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
-import { Upload, CheckCircle, Download, Mail, ArrowRight } from 'lucide-react';
+import { Upload, CheckCircle, Download, Mail, ArrowRight, LogOut } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { useSession } from '@/hooks/useSession';
 import { DatabaseService } from '@/services/database';
 import { TemplateManager } from '@/utils/templateManager';
@@ -18,8 +19,10 @@ import CLEditor from '../components/CLEditor';
 import { renderCV, renderCL } from '../renderers';
 import { downloadHTML } from '../utils/download';
 import DebugPanel from '../components/DebugPanel';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 const Index = () => {
+  const { user, signOut } = useAuth();
   const { sessionId, loading: sessionLoading } = useSession();
   const [lang, setLang] = useState<Lang>('en');
   const [selectedTemplate, setSelectedTemplate] = useState<'classic'|'modern'|'classic_alternative'>('modern');
@@ -453,7 +456,8 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -472,6 +476,22 @@ const Index = () => {
             <a href="mailto:contact@cvtailor.com" className="text-sm hover:text-primary transition-colors">
               Contact
             </a>
+            {user && (
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  Welcome, {user.email}
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => signOut()}
+                  className="text-sm"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              </div>
+            )}
             <Button onClick={() => scrollToSection('form')} size="sm" className="hover-scale">
               {t.hero_cta}
             </Button>
@@ -885,9 +905,10 @@ const Index = () => {
         </div>
       )}
       
-      {/* Debug Panel - only shows when ?debug=1 is in URL */}
-      {isDebugMode && <DebugPanel />}
-    </div>
+        {/* Debug Panel - only shows when ?debug=1 is in URL */}
+        {isDebugMode && <DebugPanel />}
+      </div>
+    </ProtectedRoute>
   );
 };
 
