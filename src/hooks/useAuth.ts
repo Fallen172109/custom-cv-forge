@@ -51,17 +51,9 @@ export const useAuthProvider = (): AuthContextType => {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Create user profile if it's a new user
-        if (event === 'SIGNED_UP' && session?.user) {
-          try {
-            await DatabaseService.createUserProfile({
-              user_id: session.user.id,
-              email: session.user.email,
-              full_name: session.user.user_metadata?.full_name || null,
-            });
-          } catch (error) {
-            console.error('Error creating user profile:', error);
-          }
+        // Handle auth state changes
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('User signed in:', session.user.id);
         }
       }
     );

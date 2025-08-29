@@ -17,6 +17,7 @@ import CVEditor from '../components/CVEditor';
 import CLEditor from '../components/CLEditor';
 import { renderCV, renderCL } from '../renderers';
 import { downloadHTML } from '../utils/download';
+import DebugPanel from '../components/DebugPanel';
 
 const Index = () => {
   const { sessionId, loading: sessionLoading } = useSession();
@@ -35,6 +36,24 @@ const Index = () => {
   const [clEdit, setClEdit] = useState<CLData | undefined>();
   const [activeEditor, setActiveEditor] = useState<'cv'|'cl'|null>(null);
   const [sendEmail, setSendEmail] = useState('');
+  
+  // Debug mode detection
+  const isDebugMode = typeof window !== 'undefined' && window.location.search.includes('debug=1');
+
+  // Set up analytics blockers for debug mode
+  useEffect(() => {
+    if (isDebugMode) {
+      // Disable analytics and tracking to prevent errors
+      if (typeof window !== 'undefined') {
+        (window as any).rudderanalytics = (window as any).rudderanalytics || { 
+          load(){}, page(){}, track(){}, identify(){}, reset(){}, ready(cb){ cb && cb(); } 
+        };
+        (window as any).fbq = (window as any).fbq || function(){};
+        (window as any).ttq = (window as any).ttq || { track(){}, page(){}, init(){} };
+        (window as any).Sentry = (window as any).Sentry || { init(){}, captureException(){}, captureMessage(){} };
+      }
+    }
+  }, [isDebugMode]);
 
   // Load templates on component mount
   useEffect(() => {
@@ -865,6 +884,9 @@ const Index = () => {
           </div>
         </div>
       )}
+      
+      {/* Debug Panel - only shows when ?debug=1 is in URL */}
+      {isDebugMode && <DebugPanel />}
     </div>
   );
 };
