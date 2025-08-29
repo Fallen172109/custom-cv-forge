@@ -51,18 +51,18 @@ export const useAuthProvider = (): AuthContextType => {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Create user profile if it's a new user (commented out for now)
-        // if (event === 'SIGNED_UP' && session?.user) {
-        //   try {
-        //     await DatabaseService.createUserProfile({
-        //       user_id: session.user.id,
-        //       email: session.user.email,
-        //       full_name: session.user.user_metadata?.full_name || null,
-        //     });
-        //   } catch (error) {
-        //     console.error('Error creating user profile:', error);
-        //   }
-        // }
+        // Create user profile if it's a new user
+        if (event === 'SIGNED_UP' && session?.user) {
+          try {
+            await DatabaseService.createUserProfile({
+              user_id: session.user.id,
+              email: session.user.email,
+              full_name: session.user.user_metadata?.full_name || null,
+            });
+          } catch (error) {
+            console.error('Error creating user profile:', error);
+          }
+        }
       }
     );
 
